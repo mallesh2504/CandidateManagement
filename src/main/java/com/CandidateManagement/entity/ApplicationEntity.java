@@ -23,7 +23,4 @@ public class ApplicationEntity {
     @Column(length = 20)
     private ApplicationStatus status; 
 
-    private String interviewDetails;   
-    
-    private String offerLetterUrl;
 }

@@ -7,8 +7,12 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class OfferLetterRequestDto {
+public class CandidateContactResponseDto {
 
-	private Long applicationId;
-	private String offerLetterUrl;
+	private String candidateName;
+
+	private String email;
+
+	private String message;
+
 }

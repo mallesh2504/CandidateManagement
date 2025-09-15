@@ -1,8 +1,5 @@
 package com.CandidateManagement.entity;
 
 public enum ApplicationStatus {
-	 APPLIED,
-	 SHORTLISTED,
-	 HIRED, 
-	 REJECTED
+	APPLIED, SHORTLISTED, INTERVIEW_SCHEDULED,INTERVIEW_IN_PROGRESS, INTERVIEWED, HIRED, REJECTED
 }

@@ -30,24 +30,6 @@ public class GlobalExceptionHandler {
 		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
 	}
 
-	@ExceptionHandler(ResumeIdNotFoundException.class)
-	public ResponseEntity<Map<String, Object>> handleResumeIdNotFoundException(ResumeIdNotFoundException ex,
-			WebRequest request) {
-		Map<String, Object> error = new HashMap<>();
-		error.put("error", "Resume Id Not Found");
-		error.put("message", ex.getMessage());
-		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
-	}
-
-	@ExceptionHandler(ResumeandCandidateNotMatched.class)
-	public ResponseEntity<Map<String, Object>> handleResumeandCandidateNotMatched(ResumeandCandidateNotMatched ex,
-			WebRequest request) {
-		Map<String, Object> error = new HashMap<>();
-		error.put("error", "Resume id does not belong to candidateId");
-		error.put("message", ex.getMessage());
-		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
-	}
-
 	@ExceptionHandler(AlreadyAppliedException.class)
 	public ResponseEntity<Map<String, Object>> handleAlreadyAppliedException(AlreadyAppliedException ex,
 			WebRequest request) {
@@ -73,6 +55,15 @@ public class GlobalExceptionHandler {
 		error.put("error", "Entered Details Are Invalid");
 		error.put("message", ex.getMessage());
 		return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+	}
+	
+	@ExceptionHandler(InterviewNotFoundException.class)
+	public ResponseEntity<Map<String, Object>> handleInterviewNotFoundException(InterviewNotFoundException ex,
+			WebRequest request) {
+		Map<String, Object> error = new HashMap<>();
+		error.put("error", "Interview Not Found With This Id ");
+		error.put("message", ex.getMessage());
+		return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
 	}
 
 }

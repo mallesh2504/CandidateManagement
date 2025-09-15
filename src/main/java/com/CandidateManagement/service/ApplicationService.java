@@ -1,6 +1,6 @@
 package com.CandidateManagement.service;
 
-import java.util.Optional;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -9,9 +9,7 @@ import org.springframework.stereotype.Service;
 
 import com.CandidateManagement.dto.ApplicationRequestDto;
 import com.CandidateManagement.dto.ApplicationResponseDto;
-import com.CandidateManagement.dto.InterviewResponseDto;
-import com.CandidateManagement.dto.OfferLetterRequestDto;
-import com.CandidateManagement.dto.OfferLetterResponseDto;
+import com.CandidateManagement.dto.ApplicationStatusUpdateRequestDto;
 import com.CandidateManagement.entity.ApplicationEntity;
 import com.CandidateManagement.entity.ApplicationStatus;
 import com.CandidateManagement.entity.CandidateEntity;
@@ -21,6 +19,9 @@ import com.CandidateManagement.exception.CandidateNotFoundException;
 import com.CandidateManagement.repository.ApplicationRepository;
 import com.CandidateManagement.repository.CandidateRepository;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class ApplicationService implements ApplicationServiceInterface {
 
@@ -33,13 +34,20 @@ public class ApplicationService implements ApplicationServiceInterface {
 	public ResponseEntity<ApplicationResponseDto> applyCandidateForJob(ApplicationRequestDto request)
 			throws CandidateNotFoundException, AlreadyAppliedException {
 
-		CandidateEntity candidate = candidateRepo.findById(request.getCandidateId()).orElseThrow(
-				() -> new CandidateNotFoundException("Candidate Not Found With Given Details, Please Register First."));
+		log.info("Processing job application request for candidate ID: {} and job ID: {}", request.getCandidateId(),
+				request.getJobId());
+
+		CandidateEntity candidate = candidateRepo.findById(request.getCandidateId()).orElseThrow(() -> {
+			log.warn("Candidate not found with ID: {}", request.getCandidateId());
+			return new CandidateNotFoundException("Candidate Not Found With Given Details, Please Register First.");
+		});
 
 		ApplicationEntity existingApplication = applicationRepo
 				.findByCandidate_IdAndJobId(request.getCandidateId(), request.getJobId()).orElse(null);
 
 		if (existingApplication != null) {
+			log.warn("Application already exists for candidate ID: {} and job ID: {}", request.getCandidateId(),
+					request.getJobId());
 			throw new AlreadyAppliedException("You have already applied for this job.");
 		}
 
@@ -50,84 +58,84 @@ public class ApplicationService implements ApplicationServiceInterface {
 
 		ApplicationEntity saved = applicationRepo.save(application);
 
+		log.info("Successfully created application with ID: {} for candidate: {} and job: {}", saved.getId(),
+				candidate.getEmail(), request.getJobId());
+
 		return new ResponseEntity<>(mapToDto(saved), HttpStatus.CREATED);
-	}
-
-	public ResponseEntity<OfferLetterResponseDto> updateofferLetterUrl(OfferLetterRequestDto request)
-			throws ApplicationNotFoundException {
-		Optional<ApplicationEntity> appliactionEntity = applicationRepo.findById(request.getApplicationId());
-		if (appliactionEntity.isEmpty()) {
-			throw new ApplicationNotFoundException("Application not found for ID: " + request.getApplicationId());
-		}
-
-		ApplicationEntity application = appliactionEntity.get();
-
-		application.setOfferLetterUrl(request.getOfferLetterUrl());
-
-		applicationRepo.save(application);
-
-		OfferLetterResponseDto letterdto = new OfferLetterResponseDto();
-
-		letterdto.setApplicationId(request.getApplicationId());
-		letterdto.setOfferLetterUrl(request.getOfferLetterUrl());
-
-		return new ResponseEntity<>(letterdto, HttpStatus.ACCEPTED);
 	}
 
 	public ResponseEntity<ApplicationResponseDto> getApplicationStatus(Long applicationId)
 			throws ApplicationNotFoundException {
 
-		ApplicationEntity application = applicationRepo.findById(applicationId)
-				.orElseThrow(() -> new ApplicationNotFoundException(
-						"With the Given Application Id is Not Found So please Apply First"));
+		log.info("Retrieving application status for application ID: {}", applicationId);
 
-		return new ResponseEntity<>(mapToDto(application), HttpStatus.OK); // ✅ fixed from FOUND → OK
+		ApplicationEntity application = applicationRepo.findById(applicationId).orElseThrow(() -> {
+			log.warn("Application not found with ID: {}", applicationId);
+			return new ApplicationNotFoundException("With the Given Application Id is Not Found So please Apply First");
+		});
+
+		log.info("Successfully retrieved application status for ID: {} - Status: {}", applicationId,
+				application.getStatus());
+
+		return new ResponseEntity<>(mapToDto(application), HttpStatus.OK);
 	}
 
-	public ResponseEntity<InterviewResponseDto> getInterviewInvites(Long applicationId)
-			throws ApplicationNotFoundException {
+	public ResponseEntity<ApplicationResponseDto> updateApplicationStatus(Long applicationId,
+			ApplicationStatusUpdateRequestDto request) throws ApplicationNotFoundException {
 
-		ApplicationEntity application = applicationRepo.findById(applicationId)
-				.orElseThrow(() -> new ApplicationNotFoundException("Application not found for ID: " + applicationId));
+		log.info("Updating application status for application ID: {} to status: {}", applicationId);
 
-		if (application.getInterviewDetails() == null || application.getInterviewDetails().isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NO_CONTENT)
-					.body(new InterviewResponseDto(applicationId, "No interview invites available yet."));
-		}
+		ApplicationEntity application = applicationRepo.findById(applicationId).orElseThrow(() -> {
+			log.warn("Application not found with ID: {}", applicationId);
+			return new ApplicationNotFoundException("Application not found for ID: " + applicationId);
+		});
 
-		return ResponseEntity.ok(new InterviewResponseDto(applicationId, application.getInterviewDetails()));
-	}
+		log.debug("Found application with current status: {}, updating to: {}", application.getStatus(), request);
 
-	public ResponseEntity<OfferLetterResponseDto> downloadOfferLetter(Long applicationId)
-			throws ApplicationNotFoundException {
-
-		ApplicationEntity application = applicationRepo.findById(applicationId)
-				.orElseThrow(() -> new ApplicationNotFoundException("Application not found for ID: " + applicationId));
-
-		if (application.getOfferLetterUrl() == null || application.getOfferLetterUrl().isEmpty()) {
-			return ResponseEntity.status(HttpStatus.NO_CONTENT)
-					.body(new OfferLetterResponseDto(applicationId, "Offer letter not available yet."));
-		}
-
-		return ResponseEntity.ok(new OfferLetterResponseDto(applicationId, application.getOfferLetterUrl()));
-	}
-
-	public ResponseEntity<ApplicationResponseDto> updateApplicationStatus(Long applicationId, ApplicationStatus status,
-			String interviewDetails) throws ApplicationNotFoundException {
-
-		ApplicationEntity application = applicationRepo.findById(applicationId)
-				.orElseThrow(() -> new ApplicationNotFoundException("Application not found for ID: " + applicationId));
-
-		application.setStatus(status);
-		application.setInterviewDetails(interviewDetails);
-
+		application.setStatus(request.getStatus());
 		ApplicationEntity saved = applicationRepo.save(application);
+
+		log.info("Successfully updated application ID: {} status from {} to {}", applicationId, application.getStatus(),
+				request);
 
 		return new ResponseEntity<>(mapToDto(saved), HttpStatus.ACCEPTED);
 	}
 
+	@Override
+	public ResponseEntity<List<ApplicationResponseDto>> listOfApplications(Long candidateId)
+			throws CandidateNotFoundException, ApplicationNotFoundException {
+
+		log.info("Retrieving applications list for candidate ID: {}", candidateId);
+
+		CandidateEntity candidate = candidateRepo.findById(candidateId).orElseThrow(() -> {
+			log.warn("Candidate not found with ID: {}", candidateId);
+			return new CandidateNotFoundException("Candidate not found");
+		});
+
+		log.debug("Candidate found: {}, retrieving applications", candidate.getEmail());
+		List<ApplicationEntity> applications = applicationRepo.findByCandidate_Id(candidateId);
+
+		if (applications.isEmpty()) {
+			log.warn("No applications found for candidate ID: {}", candidateId);
+			throw new ApplicationNotFoundException("No applications found for this candidate");
+		}
+
+		List<ApplicationResponseDto> responseDtos = applications.stream()
+				.map(app -> new ApplicationResponseDto(app.getId(), candidate.getId(), app.getJobId(), app.getStatus()))
+				.toList();
+
+		log.info("Successfully retrieved {} applications for candidate ID: {}", responseDtos.size(), candidateId);
+
+		return ResponseEntity.ok(responseDtos);
+	}
+
 	private ApplicationResponseDto mapToDto(ApplicationEntity app) {
-		return new ApplicationResponseDto(app.getId(), app.getCandidate().getId(), app.getJobId(), app.getStatus());
+		ApplicationResponseDto dto = new ApplicationResponseDto();
+		dto.setId(app.getId());
+		dto.setCandidateId(app.getCandidate().getId());
+		dto.setJobId(app.getJobId());
+		dto.setStatus(app.getStatus());
+		return dto;
 	}
 
 }
