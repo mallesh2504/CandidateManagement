@@ -19,6 +19,9 @@ import com.CandidateManagement.dto.CandidateDashboardDto;
 import com.CandidateManagement.dto.CandidateDeleteResponse;
 import com.CandidateManagement.dto.CandidateLoginRequestDto;
 import com.CandidateManagement.dto.CandidateLoginresponseDto;
+import com.CandidateManagement.dto.CandidateProfileResponseDto;
+import com.CandidateManagement.dto.CandidateProfileUpdateRequestDto;
+import com.CandidateManagement.dto.CandidateProfileUploadRequestDto;
 import com.CandidateManagement.dto.CandidateRequestDto;
 import com.CandidateManagement.dto.CandidateResponseDto;
 import com.CandidateManagement.dto.CandidateUpdateRequestDto;
@@ -41,7 +44,7 @@ public class CandidateController {
 	private CandidateService candidateService;
 
 	@PostMapping()
-	@Operation(summary = "Register new candidate", description = "Create a new candidate profile in the system")
+	@Operation(summary = "Register new candidate", description = "Create a new candidate in the system")
 	public ResponseEntity<CandidateResponseDto> addCandidates(@RequestBody CandidateRequestDto request)
 			throws CandidateAlreadyExistException {
 		log.info("Received candidate registration request for email: {}", request.getEmail());
@@ -52,15 +55,24 @@ public class CandidateController {
 	@Operation(summary = "Get candidate by ID", description = "Retrieve candidate details by candidate ID")
 	public ResponseEntity<CandidateResponseDto> getCandidate(@PathVariable Long candidateId)
 			throws CandidateNotFoundException {
-		log.info("Received Candidate request to get Candidate Details: {}",candidateId);
+		log.info("Received Candidate request to get Candidate Details: {}", candidateId);
 		return candidateService.getCandidate(candidateId);
+	}
+
+	@PostMapping("/profile")
+	@Operation(summary = "Upload Candidate Profile", description = "Upload a new candidate profile in the system")
+	public ResponseEntity<CandidateProfileResponseDto> uploadProfile(
+			@RequestBody CandidateProfileUploadRequestDto request)
+			throws CandidateNotFoundException, CandidateAlreadyExistException {
+		log.info("Received candidate profile upload request for candidate ID: {}", request.getCandidateId());
+		return candidateService.uploadProfile(request);
 	}
 
 	@GetMapping("/{candidateId}/dashboard")
 	@Operation(summary = "Get candidate dashboard", description = "Retrieve comprehensive candidate dashboard with profile, applications, and documents")
 	public ResponseEntity<CandidateDashboardDto> getCandidateDashboard(@PathVariable Long candidateId)
 			throws CandidateNotFoundException {
-		log.info("Received Candidate request to get Candidate Dashboard : {}",candidateId);
+		log.info("Received Candidate request to get Candidate Dashboard : {}", candidateId);
 		return candidateService.getCandidateDashboard(candidateId);
 	}
 
@@ -68,7 +80,7 @@ public class CandidateController {
 	@Operation(summary = "Candidate login", description = "Authenticate candidate and return JWT token")
 	public ResponseEntity<CandidateLoginresponseDto> loginCandidate(@RequestBody CandidateLoginRequestDto loginRequest)
 			throws CandidateNotFoundException, InvalidCredentialsException {
-		log.info("Received Candidate Login request with this: {}",loginRequest.getEmail());
+		log.info("Received Candidate Login request with this: {}", loginRequest.getEmail());
 		return candidateService.loginCandidate(loginRequest);
 	}
 
@@ -82,43 +94,52 @@ public class CandidateController {
 	@GetMapping("/filter/source/{source}")
 	@Operation(summary = "Filter candidates by source", description = "Get candidates filtered by their recruitment source (LinkedIn, Indeed, etc.)")
 	public List<CandidateResponseDto> filterCandidates(@PathVariable String source) {
-		log.info("Received a User request to Get All Candidates that belongs to this source : {}",source);
+		log.info("Received a User request to Get All Candidates that belongs to this source : {}", source);
 		return candidateService.filterCandidates(source);
 	}
 
 	@GetMapping("/filter/location/{location}")
 	@Operation(summary = "Filter candidates by location", description = "Get candidates filtered by their geographical location")
 	public List<CandidateResponseDto> filterCandidatesBylocation(@PathVariable String location) {
-		log.info("Received a User request to Get All Candidates that belongs to this location : {}",location);
+		log.info("Received a User request to Get All Candidates that belongs to this location : {}", location);
 		return candidateService.filterCandidatesBylocation(location);
 	}
 
 	@GetMapping("/filter/skills")
 	@Operation(summary = "Filter candidates by skills", description = "Get candidates who possess any of the specified skills (case-insensitive matching)")
 	public List<CandidateResponseDto> filterCandidatesBySkills(@RequestBody List<String> skills) {
-		log.info("Received a User request to Get All Candidates that belongs to this skills : {}",skills);
+		log.info("Received a User request to Get All Candidates that belongs to this skills : {}", skills);
 		return candidateService.filterCandidatesBySkills(skills);
 	}
 
 	@PutMapping("/{candidateId}")
-	@Operation(summary = "Update candidate profile", description = "Update candidate information and profile details")
+	@Operation(summary = "Update candidate Information", description = "Update candidate information details")
 	public ResponseEntity<CandidateResponseDto> updateCandidate(@PathVariable Long candidateId,
 			@RequestBody CandidateUpdateRequestDto request) throws CandidateNotFoundException {
-		log.info("Received a Candidate request to Update Details of : {}",candidateId);
+		log.info("Received a Candidate request to Update Details of : {}", candidateId);
 		return candidateService.updateCandidate(candidateId, request);
+	}
+
+	@PutMapping("/{candidateId}/profileupdate")
+	@Operation(summary = "Update candidate profile", description = "Update candidate profile details")
+	public ResponseEntity<CandidateProfileResponseDto> updateProfile(@PathVariable Long candidateId,
+			@RequestBody CandidateProfileUpdateRequestDto request) throws CandidateNotFoundException {
+		log.info("Received a Candidate request to Update Details of : {}", candidateId);
+		return candidateService.updateProfile(candidateId, request);
 	}
 
 	@DeleteMapping("/{candidateId}")
 	@Operation(summary = "Delete candidate", description = "Remove candidate from the system permanently")
 	public ResponseEntity<CandidateDeleteResponse> deleteCandidate(@PathVariable Long candidateId)
 			throws CandidateNotFoundException {
-		log.info("Received a Candidate request to Delete Account : {}",candidateId);
+		log.info("Received a Candidate request to Delete Account : {}", candidateId);
 		return candidateService.deleteCandidate(candidateId);
 	}
-	
+
 	@PostMapping("/contactSupport")
-	public ResponseEntity<CandidateContactResponseDto> contactSupport(@RequestBody CandidateContactRequestDto request) throws CandidateNotFoundException{
+	public ResponseEntity<CandidateContactResponseDto> contactSupport(@RequestBody CandidateContactRequestDto request)
+			throws CandidateNotFoundException {
 		return candidateService.contactSupport(request);
-		
+
 	}
 }

@@ -10,6 +10,9 @@ import com.CandidateManagement.dto.CandidateDashboardDto;
 import com.CandidateManagement.dto.CandidateDeleteResponse;
 import com.CandidateManagement.dto.CandidateLoginRequestDto;
 import com.CandidateManagement.dto.CandidateLoginresponseDto;
+import com.CandidateManagement.dto.CandidateProfileResponseDto;
+import com.CandidateManagement.dto.CandidateProfileUpdateRequestDto;
+import com.CandidateManagement.dto.CandidateProfileUploadRequestDto;
 import com.CandidateManagement.dto.CandidateRequestDto;
 import com.CandidateManagement.dto.CandidateResponseDto;
 import com.CandidateManagement.dto.CandidateUpdateRequestDto;
@@ -44,4 +47,9 @@ public interface CandidateServiceInterface {
 			throws CandidateNotFoundException;
 
 	ResponseEntity<CandidateDashboardDto> getCandidateDashboard(Long candidateId) throws CandidateNotFoundException;
+	
+	ResponseEntity<CandidateProfileResponseDto> uploadProfile(CandidateProfileUploadRequestDto request) throws CandidateNotFoundException, CandidateAlreadyExistException;
+
+	ResponseEntity<CandidateProfileResponseDto> updateProfile(Long candidateId,
+			CandidateProfileUpdateRequestDto request) throws CandidateNotFoundException;
 }

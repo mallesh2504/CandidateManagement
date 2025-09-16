@@ -1,8 +1,10 @@
 package com.CandidateManagement.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,15 +17,20 @@ import com.CandidateManagement.dto.CandidateDashboardDto;
 import com.CandidateManagement.dto.CandidateDeleteResponse;
 import com.CandidateManagement.dto.CandidateLoginRequestDto;
 import com.CandidateManagement.dto.CandidateLoginresponseDto;
+import com.CandidateManagement.dto.CandidateProfileResponseDto;
+import com.CandidateManagement.dto.CandidateProfileUpdateRequestDto;
+import com.CandidateManagement.dto.CandidateProfileUploadRequestDto;
 import com.CandidateManagement.dto.CandidateRequestDto;
 import com.CandidateManagement.dto.CandidateResponseDto;
 import com.CandidateManagement.dto.CandidateUpdateRequestDto;
 import com.CandidateManagement.entity.CandidateEntity;
+import com.CandidateManagement.entity.CandidateProfileEntity;
 import com.CandidateManagement.entity.ContactSupportEntity;
 import com.CandidateManagement.exception.CandidateAlreadyExistException;
 import com.CandidateManagement.exception.CandidateNotFoundException;
 import com.CandidateManagement.exception.InvalidCredentialsException;
 import com.CandidateManagement.repository.ApplicationRepository;
+import com.CandidateManagement.repository.CandidateProfileRepository;
 import com.CandidateManagement.repository.CandidateRepository;
 import com.CandidateManagement.repository.ContactSupportRepository;
 import com.CandidateManagement.repository.InterviewRepository;
@@ -46,6 +53,9 @@ public class CandidateService implements CandidateServiceInterface {
 
 	@Autowired
 	private ContactSupportRepository contactSupportRepo;
+
+	@Autowired
+	private CandidateProfileRepository candidateProfileRepo;
 
 	@Autowired
 	private JwtUtil jwtUtil;
@@ -222,7 +232,6 @@ public class CandidateService implements CandidateServiceInterface {
 		candidate.setPhone(request.getPhone());
 		candidate.setPassword(request.getPassword());
 
-		// Convert List -> CSV
 		if (request.getSkills() != null && !request.getSkills().isEmpty()) {
 			candidate.setSkills(String.join(",", request.getSkills()));
 		}
@@ -264,10 +273,26 @@ public class CandidateService implements CandidateServiceInterface {
 	public ResponseEntity<CandidateDashboardDto> getCandidateDashboard(Long candidateId)
 			throws CandidateNotFoundException {
 
-		CandidateEntity candidate = candidateRepo.findById(candidateId)
-				.orElseThrow(() -> new CandidateNotFoundException("Candidate not found"));
+		log.info("Retrieving dashboard data for candidate ID: {}", candidateId);
 
-		CandidateResponseDto profile = mapToResponseDto(candidate);
+		CandidateEntity candidate = candidateRepo.findById(candidateId).orElseThrow(() -> {
+			log.warn("Candidate not found with ID: {}", candidateId);
+			return new CandidateNotFoundException("Candidate not found");
+		});
+
+		log.debug("Found candidate: {} {}, retrieving dashboard components", candidate.getFirstName(),
+				candidate.getLastName());
+
+		CandidateResponseDto candidateInformation = mapToResponseDto(candidate);
+
+		CandidateProfileResponseDto candidateProfile = null;
+		Optional<CandidateProfileEntity> profileEntity = candidateProfileRepo.findByCandidate_Id(candidateId);
+		if (profileEntity.isPresent()) {
+			log.debug("Found profile for candidate ID: {}", candidateId);
+			candidateProfile = mapToProfileResponseDto(profileEntity.get());
+		} else {
+			log.debug("No profile found for candidate ID: {}", candidateId);
+		}
 
 		List<CandidateDashboardDto.ApplicationDto> applications = applicationRepo.findByCandidate_Id(candidateId)
 				.stream().map(app -> {
@@ -280,9 +305,10 @@ public class CandidateService implements CandidateServiceInterface {
 					dto.setExpectedSalary(app.getExpectedSalary());
 					dto.setCreatedAt(app.getCreatedAt());
 					dto.setIsActive(app.getIsActive());
-
 					return dto;
 				}).toList();
+
+		log.debug("Found {} applications for candidate ID: {}", applications.size(), candidateId);
 
 		List<CandidateDashboardDto.DocumentDto> documents = candidate.getDocuments() != null
 				? candidate.getDocuments().stream()
@@ -291,6 +317,8 @@ public class CandidateService implements CandidateServiceInterface {
 								doc.getUploadedAt() != null ? doc.getUploadedAt().toString() : null))
 						.toList()
 				: List.of();
+
+		log.debug("Found {} documents for candidate ID: {}", documents.size(), candidateId);
 
 		List<CandidateDashboardDto.InterviewDto> interviews = interviewRepo.findByApplication_Candidate_Id(candidateId)
 				.stream()
@@ -301,9 +329,162 @@ public class CandidateService implements CandidateServiceInterface {
 						interview.getIsActive()))
 				.toList();
 
-		CandidateDashboardDto dashboard = new CandidateDashboardDto(profile, applications, documents, interviews);
+		log.debug("Found {} interviews for candidate ID: {}", interviews.size(), candidateId);
+
+		CandidateDashboardDto dashboard = new CandidateDashboardDto(candidateInformation, candidateProfile,
+				applications, documents, interviews);
+
+		log.info(
+				"Successfully retrieved dashboard data for candidate ID: {} - Profile: {}, Applications: {}, Documents: {}, Interviews: {}",
+				candidateId, candidateProfile != null ? "Yes" : "No", applications.size(), documents.size(),
+				interviews.size());
 
 		return new ResponseEntity<>(dashboard, HttpStatus.OK);
+	}
+
+	@Override
+	public ResponseEntity<CandidateProfileResponseDto> uploadProfile(CandidateProfileUploadRequestDto request)
+			throws CandidateNotFoundException, CandidateAlreadyExistException {
+
+		log.info("Processing profile upload request for candidate ID: {}", request.getCandidateId());
+
+		CandidateEntity candidate = candidateRepo.findById(request.getCandidateId()).orElseThrow(() -> {
+			log.warn("Candidate not found with ID: {}", request.getCandidateId());
+			return new CandidateNotFoundException("Candidate not found with ID: " + request.getCandidateId());
+		});
+
+		log.debug("Found candidate: {} {}, checking for existing profile", candidate.getFirstName(),
+				candidate.getLastName());
+
+		Optional<CandidateProfileEntity> existingProfile = candidateProfileRepo
+				.findByCandidate_Id(request.getCandidateId());
+
+		if (existingProfile.isPresent()) {
+			log.warn("Profile already exists for candidate ID: {}", request.getCandidateId());
+			throw new CandidateAlreadyExistException("Profile already exists for this candidate. Update instead.");
+		}
+
+		log.debug("Creating new profile for candidate ID: {}", request.getCandidateId());
+
+		CandidateProfileEntity profile = new CandidateProfileEntity();
+		profile.setCandidate(candidate);
+		profile.setLinkedinUrl(request.getLinkedinUrl());
+		profile.setGithubUrl(request.getGithubUrl());
+		profile.setPortfolioUrl(request.getPortfolioUrl());
+		profile.setWebsiteUrl(request.getWebsiteUrl());
+		profile.setBio(request.getBio());
+		profile.setSummary(request.getSummary());
+		profile.setDateOfBirth(request.getDateOfBirth());
+		profile.setGender(request.getGender());
+		profile.setNationality(request.getNationality());
+		profile.setAvailabilityStatus(request.getAvailabilityStatus());
+		profile.setAvailabilityDate(request.getAvailabilityDate());
+		profile.setSalaryExpectation(request.getSalaryExpectation());
+		profile.setPreferredJobType(request.getPreferredJobType());
+		profile.setPreferredWorkLocation(request.getPreferredWorkLocation());
+		profile.setWillingToRelocate(request.getWillingToRelocate());
+		profile.setNoticePeriod(request.getNoticePeriod());
+		profile.setCurrentCompany(request.getCurrentCompany());
+		profile.setCurrentPosition(request.getCurrentPosition());
+		profile.setCurrentSalary(request.getCurrentSalary());
+		profile.setExperience(request.getExperience());
+		profile.setProfileRating(request.getProfileRating());
+		profile.setCreatedAt(LocalDateTime.now());
+		profile.setIsActive(request.getIsActive() != null ? request.getIsActive() : true);
+
+		CandidateProfileEntity savedProfile = candidateProfileRepo.save(profile);
+
+		log.info("Successfully created profile with ID: {} for candidate: {} {}", savedProfile.getId(),
+				candidate.getFirstName(), candidate.getLastName());
+
+		CandidateProfileResponseDto responseDto = mapToProfileResponseDto(savedProfile);
+
+		return new ResponseEntity<>(responseDto, HttpStatus.CREATED);
+	}
+
+	@Override
+	public ResponseEntity<CandidateProfileResponseDto> updateProfile(Long candidateId,
+			CandidateProfileUpdateRequestDto request) throws CandidateNotFoundException {
+
+		log.info("Processing profile update request for candidate ID: {}", candidateId);
+
+		CandidateEntity candidate = candidateRepo.findById(candidateId).orElseThrow(() -> {
+			log.warn("Candidate not found with ID: {}", candidateId);
+			return new CandidateNotFoundException("Candidate not found with ID: " + candidateId);
+		});
+
+		CandidateProfileEntity existingProfile = candidateProfileRepo.findByCandidate_Id(candidateId)
+				.orElseThrow(() -> {
+					log.warn("Profile not found for candidate ID: {}", candidateId);
+					return new CandidateNotFoundException("Profile not found for candidate ID: " + candidateId);
+				});
+
+		if (request.getLinkedinUrl() != null) {
+			existingProfile.setLinkedinUrl(request.getLinkedinUrl());
+		}
+		if (request.getGithubUrl() != null) {
+			existingProfile.setGithubUrl(request.getGithubUrl());
+		}
+		if (request.getPortfolioUrl() != null) {
+			existingProfile.setPortfolioUrl(request.getPortfolioUrl());
+		}
+		if (request.getWebsiteUrl() != null) {
+			existingProfile.setWebsiteUrl(request.getWebsiteUrl());
+		}
+		if (request.getBio() != null) {
+			existingProfile.setBio(request.getBio());
+		}
+		if (request.getSummary() != null) {
+			existingProfile.setSummary(request.getSummary());
+		}
+		if (request.getAvailabilityStatus() != null) {
+			existingProfile.setAvailabilityStatus(request.getAvailabilityStatus());
+		}
+		if (request.getAvailabilityDate() != null) {
+			existingProfile.setAvailabilityDate(request.getAvailabilityDate());
+		}
+		if (request.getSalaryExpectation() != null) {
+			existingProfile.setSalaryExpectation(request.getSalaryExpectation());
+		}
+		if (request.getPreferredJobType() != null) {
+			existingProfile.setPreferredJobType(request.getPreferredJobType());
+		}
+		if (request.getPreferredWorkLocation() != null) {
+			existingProfile.setPreferredWorkLocation(request.getPreferredWorkLocation());
+		}
+		if (request.getWillingToRelocate() != null) {
+			existingProfile.setWillingToRelocate(request.getWillingToRelocate());
+		}
+		if (request.getNoticePeriod() != null) {
+			existingProfile.setNoticePeriod(request.getNoticePeriod());
+		}
+		if (request.getCurrentCompany() != null) {
+			existingProfile.setCurrentCompany(request.getCurrentCompany());
+		}
+		if (request.getCurrentPosition() != null) {
+			existingProfile.setCurrentPosition(request.getCurrentPosition());
+		}
+		if (request.getCurrentSalary() != null) {
+			existingProfile.setCurrentSalary(request.getCurrentSalary());
+		}
+		if (request.getExperience() != null) {
+			existingProfile.setExperience(request.getExperience());
+		}
+		if (request.getProfileRating() != null) {
+			existingProfile.setProfileRating(request.getProfileRating());
+		}
+		if (request.getIsActive() != null) {
+			existingProfile.setIsActive(request.getIsActive());
+		}
+
+		CandidateProfileEntity updatedProfile = candidateProfileRepo.save(existingProfile);
+
+		log.info("Successfully updated profile with ID: {} for candidate: {} {}", updatedProfile.getId(),
+				candidate.getFirstName(), candidate.getLastName());
+
+		CandidateProfileResponseDto responseDto = mapToProfileResponseDto(updatedProfile);
+
+		return new ResponseEntity<>(responseDto, HttpStatus.OK);
 	}
 
 	@Override
@@ -344,6 +525,36 @@ public class CandidateService implements CandidateServiceInterface {
 			dto.setSkills(List.of());
 		}
 
+		return dto;
+	}
+
+	private CandidateProfileResponseDto mapToProfileResponseDto(CandidateProfileEntity profile) {
+		CandidateProfileResponseDto dto = new CandidateProfileResponseDto();
+		dto.setId(profile.getId());
+		dto.setCandidateId(profile.getCandidate().getId());
+		dto.setLinkedinUrl(profile.getLinkedinUrl());
+		dto.setGithubUrl(profile.getGithubUrl());
+		dto.setPortfolioUrl(profile.getPortfolioUrl());
+		dto.setWebsiteUrl(profile.getWebsiteUrl());
+		dto.setBio(profile.getBio());
+		dto.setSummary(profile.getSummary());
+		dto.setDateOfBirth(profile.getDateOfBirth());
+		dto.setGender(profile.getGender());
+		dto.setNationality(profile.getNationality());
+		dto.setAvailabilityStatus(profile.getAvailabilityStatus());
+		dto.setAvailabilityDate(profile.getAvailabilityDate());
+		dto.setSalaryExpectation(profile.getSalaryExpectation());
+		dto.setPreferredJobType(profile.getPreferredJobType());
+		dto.setPreferredWorkLocation(profile.getPreferredWorkLocation());
+		dto.setWillingToRelocate(profile.getWillingToRelocate());
+		dto.setNoticePeriod(profile.getNoticePeriod());
+		dto.setCurrentCompany(profile.getCurrentCompany());
+		dto.setCurrentPosition(profile.getCurrentPosition());
+		dto.setCurrentSalary(profile.getCurrentSalary());
+		dto.setExperience(profile.getExperience());
+		dto.setProfileRating(profile.getProfileRating());
+		dto.setCreatedAt(profile.getCreatedAt());
+		dto.setIsActive(profile.getIsActive());
 		return dto;
 	}
 
