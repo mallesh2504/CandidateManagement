@@ -19,17 +19,19 @@ public class JwtUtil {
 
 	private final SecretKey secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
-	public String generateToken(String email, String password, String firstName, String lastName) {
+	public String generateToken(String email, String password, String firstName, String lastName,String role,String comapanyCode) {
 		Map<String, Object> claims = new HashMap<>();
-		claims.put("email", email);
+		claims.put("companyCode", comapanyCode);
 		claims.put("firstName", firstName);
 		claims.put("lastName", lastName);
-		return createToken(claims, password);
+		claims.put("type", "ACCESS");
+		claims.put("roles", role);
+		claims.put("password", password);
+		return createToken(claims, email);
 	}
 
-	private String createToken(Map<String, Object> claims, String password) {
-		return Jwts.builder().setClaims(claims).setSubject(password) // ⚠️ Normally subject is userId/email, not
-																		// password
+	private String createToken(Map<String, Object> claims, String email) {
+		return Jwts.builder().setClaims(claims).setSubject(email) 
 				.setIssuedAt(new Date(System.currentTimeMillis()))
 				.setExpiration(new Date(System.currentTimeMillis() + JWT_TOKEN_VALIDITY * 1000))
 				.signWith(secretKey, SignatureAlgorithm.HS256).compact();

@@ -1,5 +1,6 @@
 package com.CandidateManagement.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,7 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class CandidateDashboardDto {
-	private CandidateResponseDto candidateProfile;
+	private CandidateResponseDto candidateInformation;
 	private List<ApplicationDto> applications;
 	private List<DocumentDto> documents;
 	private List<InterviewDto> interviews;
@@ -23,6 +24,11 @@ public class CandidateDashboardDto {
 		private Long applicationId;
 		private Long jobId;
 		private String applicationStatus;
+		private String applicationStage;
+		private String applicationSource;
+		private BigDecimal expectedSalary;
+		private LocalDateTime createdAt;
+		private Boolean isActive;
 	}
 
 	@Data

@@ -19,7 +19,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.CandidateManagement.dto.DocumentResponseDto;
 import com.CandidateManagement.entity.DocumentEntity;
 import com.CandidateManagement.entity.DocumentType;
-import com.CandidateManagement.repository.DocumentRepository;
 import com.CandidateManagement.service.DocumentService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,14 +34,11 @@ public class DocumentController {
 	@Autowired
 	private DocumentService documentService;
 
-	@Autowired
-	private DocumentRepository documentRepo;
-
 	@PostMapping
 	@Operation(summary = "Upload document", description = "Upload a new document for a candidate (resume, certificate, etc.)")
 	public ResponseEntity<DocumentResponseDto> uploadDocument(@RequestParam("file") MultipartFile file,
 			@RequestParam("candidateId") Long candidateId, @RequestParam("documentType") DocumentType documentType) {
-		log.info("Received a Request to Upload the Document for a Candidate :{}",candidateId);
+		log.info("Received a Request to Upload the Document for a Candidate :{}", candidateId);
 		DocumentResponseDto response = documentService.uploadDocument(file, candidateId, documentType);
 		return ResponseEntity.ok(response);
 	}
@@ -51,7 +47,7 @@ public class DocumentController {
 	@Operation(summary = "Update document", description = "Replace an existing document with a new file")
 	public ResponseEntity<DocumentResponseDto> updateDocument(@PathVariable Long documentId,
 			@RequestParam("file") MultipartFile file) {
-		log.info("Received a Request to Update the Document  :{}",documentId);
+		log.info("Received a Request to Update the Document  :{}", documentId);
 		DocumentResponseDto response = documentService.updateDocument(documentId, file);
 		return ResponseEntity.ok(response);
 	}
@@ -60,10 +56,9 @@ public class DocumentController {
 	@Operation(summary = "Download document", description = "Download a document file by its ID")
 	public ResponseEntity<byte[]> downloadDocument(@PathVariable Long documentId) {
 
-		log.info("Received a Request to Download the Document  :{}",documentId);
-		DocumentEntity doc = documentRepo.findById(documentId)
-				.orElseThrow(() -> new RuntimeException("Document not found with ID: " + documentId));
+		log.info("Received a Request to Download the Document  :{}", documentId);
 
+		DocumentEntity doc = documentService.getDocumentById(documentId);
 		byte[] fileBytes = documentService.downloadDocument(documentId);
 
 		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + doc.getFileName())
@@ -73,7 +68,7 @@ public class DocumentController {
 	@GetMapping("/preview/{documentId}")
 	@Operation(summary = "Preview document", description = "Get a signed URL to preview a document (valid for 10 minutes)")
 	public ResponseEntity<String> previewDocument(@PathVariable Long documentId) {
-		log.info("Received a Request to Preview the Document  :{}",documentId);
+		log.info("Received a Request to Preview the Document  :{}", documentId);
 		String signedUrl = documentService.previewDocument(documentId);
 		return ResponseEntity.ok(signedUrl);
 	}
@@ -81,14 +76,14 @@ public class DocumentController {
 	@GetMapping("/candidate/{candidateId}")
 	@Operation(summary = "Get candidate documents", description = "Retrieve all documents uploaded by a specific candidate")
 	public ResponseEntity<List<DocumentResponseDto>> getDocumentsByCandidate(@PathVariable Long candidateId) {
-		log.info("Received a Request to get All  Documents that belongs to  :{}",candidateId);
+		log.info("Received a Request to get All  Documents that belongs to  :{}", candidateId);
 		return ResponseEntity.ok(documentService.getDocumentsByCandidate(candidateId));
 	}
 
 	@DeleteMapping("/{documentId}")
 	@Operation(summary = "Delete document", description = "Permanently delete a document from storage and database")
 	public ResponseEntity<String> deleteDocument(@PathVariable Long documentId) {
-		log.info("Received a Request to Delete Document :{}",documentId);
+		log.info("Received a Request to Delete Document :{}", documentId);
 		documentService.deleteDocument(documentId);
 		return ResponseEntity.ok("Document deleted successfully " + documentId);
 	}

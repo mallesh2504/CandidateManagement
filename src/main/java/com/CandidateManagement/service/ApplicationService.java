@@ -1,5 +1,6 @@
 package com.CandidateManagement.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +56,12 @@ public class ApplicationService implements ApplicationServiceInterface {
 		application.setCandidate(candidate);
 		application.setJobId(request.getJobId());
 		application.setStatus(request.getStatus() != null ? request.getStatus() : ApplicationStatus.APPLIED);
+		application.setApplicationSource(request.getApplicationSource());
+		application.setApplicationNotes(request.getApplicationNotes());
+		application.setExpectedSalary(request.getExpectedSalary());
+		application.setApplicationRating(request.getApplicationRating());
+		application.setSkillMatchScore(request.getSkillMatchScore());
+		application.setCreatedAt(LocalDateTime.now());
 
 		ApplicationEntity saved = applicationRepo.save(application);
 
@@ -83,20 +90,31 @@ public class ApplicationService implements ApplicationServiceInterface {
 	public ResponseEntity<ApplicationResponseDto> updateApplicationStatus(Long applicationId,
 			ApplicationStatusUpdateRequestDto request) throws ApplicationNotFoundException {
 
-		log.info("Updating application status for application ID: {} to status: {}", applicationId);
+		log.info("Updating application status for application ID: {} to status: {}", applicationId,
+				request.getStatus());
 
 		ApplicationEntity application = applicationRepo.findById(applicationId).orElseThrow(() -> {
 			log.warn("Application not found with ID: {}", applicationId);
 			return new ApplicationNotFoundException("Application not found for ID: " + applicationId);
 		});
 
-		log.debug("Found application with current status: {}, updating to: {}", application.getStatus(), request);
+		log.debug("Found application with current status: {}, updating to: {}", application.getStatus(),
+				request.getStatus());
 
 		application.setStatus(request.getStatus());
+
+		if (request.getApplicationStage() != null) {
+			application.setApplicationStage(request.getApplicationStage());
+		}
+
+		if (request.getIsActive() != null) {
+			application.setIsActive(request.getIsActive());
+		}
+
 		ApplicationEntity saved = applicationRepo.save(application);
 
 		log.info("Successfully updated application ID: {} status from {} to {}", applicationId, application.getStatus(),
-				request);
+				request.getStatus());
 
 		return new ResponseEntity<>(mapToDto(saved), HttpStatus.ACCEPTED);
 	}
@@ -120,9 +138,7 @@ public class ApplicationService implements ApplicationServiceInterface {
 			throw new ApplicationNotFoundException("No applications found for this candidate");
 		}
 
-		List<ApplicationResponseDto> responseDtos = applications.stream()
-				.map(app -> new ApplicationResponseDto(app.getId(), candidate.getId(), app.getJobId(), app.getStatus()))
-				.toList();
+		List<ApplicationResponseDto> responseDtos = applications.stream().map(this::mapToDto).toList();
 
 		log.info("Successfully retrieved {} applications for candidate ID: {}", responseDtos.size(), candidateId);
 
@@ -135,7 +151,14 @@ public class ApplicationService implements ApplicationServiceInterface {
 		dto.setCandidateId(app.getCandidate().getId());
 		dto.setJobId(app.getJobId());
 		dto.setStatus(app.getStatus());
+		dto.setApplicationStage(app.getApplicationStage());
+		dto.setApplicationSource(app.getApplicationSource());
+		dto.setApplicationNotes(app.getApplicationNotes());
+		dto.setExpectedSalary(app.getExpectedSalary());
+		dto.setApplicationRating(app.getApplicationRating());
+		dto.setSkillMatchScore(app.getSkillMatchScore());
+		dto.setCreatedAt(app.getCreatedAt());
+		dto.setIsActive(app.getIsActive());
 		return dto;
 	}
-
 }

@@ -143,6 +143,12 @@ public class DocumentService implements DocumentServiceInterface {
 		}
 	}
 
+	public DocumentEntity getDocumentById(Long documentId) {
+		log.info("Fetching document by ID: {}", documentId);
+		return documentRepo.findById(documentId)
+				.orElseThrow(() -> new RuntimeException("Document not found with ID: " + documentId));
+	}
+
 	@Override
 	public byte[] downloadDocument(Long documentId) {
 		log.info("Starting document download for document ID: {}", documentId);

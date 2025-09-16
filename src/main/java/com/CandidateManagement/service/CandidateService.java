@@ -43,7 +43,7 @@ public class CandidateService implements CandidateServiceInterface {
 
 	@Autowired
 	private InterviewRepository interviewRepo;
-	
+
 	@Autowired
 	private ContactSupportRepository contactSupportRepo;
 
@@ -124,8 +124,10 @@ public class CandidateService implements CandidateServiceInterface {
 		}
 
 		log.debug("Generating JWT token for candidate: {}", candidate.getEmail());
+
+		String companyCode = null;
 		String token = jwtUtil.generateToken(loginRequest.getEmail(), loginRequest.getPassword(),
-				candidate.getFirstName(), candidate.getLastName());
+				candidate.getFirstName(), candidate.getLastName(), candidate.getRole(), companyCode);
 
 		CandidateLoginresponseDto responseDto = new CandidateLoginresponseDto();
 		responseDto.setEmail(loginRequest.getEmail());
@@ -268,9 +270,19 @@ public class CandidateService implements CandidateServiceInterface {
 		CandidateResponseDto profile = mapToResponseDto(candidate);
 
 		List<CandidateDashboardDto.ApplicationDto> applications = applicationRepo.findByCandidate_Id(candidateId)
-				.stream().map(app -> new CandidateDashboardDto.ApplicationDto(app.getId(), app.getJobId(),
-						app.getStatus().toString()))
-				.toList();
+				.stream().map(app -> {
+					CandidateDashboardDto.ApplicationDto dto = new CandidateDashboardDto.ApplicationDto();
+					dto.setApplicationId(app.getId());
+					dto.setJobId(app.getJobId());
+					dto.setApplicationStatus(app.getStatus().toString());
+					dto.setApplicationStage(app.getApplicationStage());
+					dto.setApplicationSource(app.getApplicationSource());
+					dto.setExpectedSalary(app.getExpectedSalary());
+					dto.setCreatedAt(app.getCreatedAt());
+					dto.setIsActive(app.getIsActive());
+
+					return dto;
+				}).toList();
 
 		List<CandidateDashboardDto.DocumentDto> documents = candidate.getDocuments() != null
 				? candidate.getDocuments().stream()
@@ -307,7 +319,6 @@ public class CandidateService implements CandidateServiceInterface {
 		entity.setEmail(request.getEmail());
 		entity.setMessage(request.getMessage());
 
-		
 		contactSupportRepo.save(entity);
 
 		CandidateContactResponseDto dto = new CandidateContactResponseDto();

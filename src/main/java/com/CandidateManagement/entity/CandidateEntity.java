@@ -33,16 +33,19 @@ public class CandidateEntity {
 	private String email;
 
 	private String phone;
+
 	private String password;
 
-	
 	@Column(name = "skills")
-	private String skills; 
+	private String skills;
 
 	private String source;
+
 	private String location;
 
-	
+	@Column(name = "role", nullable = false)
+	private String role = "CANDIDATE";
+
 	@OneToMany(mappedBy = "candidate", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
 	private List<DocumentEntity> documents;
 }
